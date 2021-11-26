@@ -92,8 +92,9 @@ exports.addUser = addUser;
  */
 const getAllReservations = function(guest_id, limit = 10) {
   const querryString = `
-    SELECT * 
-    FROM reservations
+    SELECT properties.* 
+    FROM properties
+    JOIN reservations ON property_id = properties.id
     WHERE guest_id = $1
     LIMIT $2;
   `;
