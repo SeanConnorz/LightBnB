@@ -115,8 +115,69 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
  const getAllProperties = (options, limit = 10) => {
+  const queryParams = [];
+
+  let queryString = `
+    SELECT properties.*, avg(property_reviews.rating) as average_rating
+    FROM properties
+    JOIN property_reviews ON properties.id = property_id
+    `;
+
+  if (options.city) {
+    queryParams.push(`%${options.city}%`);
+    if (queryParams.length <= 1) {
+      queryString += `WHERE city LIKE $${queryParams.length}`;
+    } else {
+      queryString += `AND city LIKE $${queryParams.length}`;
+    }
+  }
+
+  if (options.owner_id) {
+    queryParams.push(`%${options.owner_id}%`);
+    if (queryParams.length <= 1) {
+      queryString += `WHERE owner_id = $${queryParams.length}`;
+    } else {
+      queryString += `AND owner_id = $${queryParams.length}`;
+    }
+  } 
+
+  if (options.minimum_price_per_night) {
+    queryParams.push(`${options.minimum_price_per_night}`);
+    if (queryParams.length <= 1) {
+      queryString += `WHERE cost_per_night > $${queryParams.length} `;
+    } else {
+      queryString += `AND cost_per_night > $${queryParams.length}`;
+    }
+  }
+
+  if (options.maximum_price_per_night) {
+    queryParams.push(`${options.maximum_price_per_night}`);
+    if (queryParams.length <= 1) {
+      queryString += `WHERE cost_per_night < $${queryParams.length} `;
+    } else {
+      queryString += `AND cost_per_night < $${queryParams.length}`;
+    }
+  }
+
+  if (options.minimum_rating) {
+    queryParams.push(`${options.minimum_rating}`);
+    if (queryParams.length <= 1) {
+      queryString += `WHERE rating > $${queryParams.length} `;
+    } else {
+      queryString += `AND rating > $${queryParams.length}`;
+    }
+  }
+
+  queryParams.push(limit);
+  queryString += `
+  GROUP BY properties.id
+  HAVING avg(property_reviews.rating) >= 4
+  ORDER BY cost_per_night
+  LIMIT $${queryParams.length};
+  `;
+  
   return pool
-    .query(`SELECT * FROM properties LIMIT $1`, [limit])
+    .query(queryString, queryParams)
     .then((result) => result.rows)
     .catch((err) => {
       console.log(err.message);
